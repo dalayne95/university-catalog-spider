@@ -1,0 +1,48 @@
+# cd scrapy-venv
+# source env/bin/activate
+# (env)
+# cd tutorial 
+
+import scrapy # scrapy is a web scraping framework
+from urllib import parse # urllib is used to parse urls
+import random # random is used to generate the random filenames 0-100000
+from bs4 import BeautifulSoup # beautiful soup makes html and text more readable 
+
+class LSUSpider(scrapy.Spider):
+    name = "lsu"
+    start_urls = [
+        "https://catalog.lsu.edu/content.php?catoid=19&navoid=1683"
+    ]
+
+    visited_pages = []
+    
+    # define a parse function
+    def parse(self, response):
+        page_urls = response.css('a::attr(href)').getall()
+        urls_to_follow = [] # this means all urls
+        for url in page_urls:
+            parsed = parse.urlparse(url)
+            if parsed.hostname == None or parsed.hostname == 'catalog.lsu.edu':
+                if parsed.path.split('.')[-1] == 'php':
+                    urls_to_follow.append(url)
+
+        # soup = BeautifulSoup(response.body, "html.parser")
+        # filename = "lsu-pages/%i.txt" % random.randrange(0, 1000000)
+        # with open(filename, 'w+') as f: # w is write permission
+        #     f.write(soup.get_text())
+        # self.log('Saved file %s' % filename)
+
+        soup = BeautifulSoup(response.body, "html.parser")
+        page_text = soup.get_text().lower()
+        keywords = ['sustainability', 'energy', 'environmental', 'science']
+        keywords_found = 0
+        for keyword in keywords:
+            keywords_found = keywords_found + page_text.count(keyword)
+        if keywords_found > 0:
+            print("Found %i keywords on %s" % (keywords_found, response.url))  
+            
+        for url in urls_to_follow:
+            if url not in LSUSpider.visited_pages:
+                LSUSpider.visited_pages.append(url)
+                yield response.follow(url, self.parse)
+  
